@@ -1,0 +1,92 @@
+===========================================
+HEALTHCARE APP - QUICK START GUIDE
+===========================================
+
+STEP 1: Run Setup Script
+-------------------------
+Open Windows PowerShell (NOT PowerShell 7, regular Windows PowerShell works):
+
+    cd C:\Users\Arunkumar\Desktop\hc
+    .\setup.ps1
+
+This creates all necessary directories.
+
+STEP 2: Setup MySQL Database
+-----------------------------
+1. Start MySQL server
+2. Open MySQL command line:
+   
+   mysql -u root -p
+
+3. Create database:
+   
+   CREATE DATABASE healthcare_db;
+   USE healthcare_db;
+   source C:/Users/Arunkumar/Desktop/hc/database/schema.sql
+   source C:/Users/Arunkumar/Desktop/hc/database/seed.sql
+
+STEP 3: Configure Application
+------------------------------
+Edit: src\main\resources\application.properties
+
+Update these lines:
+- spring.datasource.username=YOUR_USERNAME
+- spring.datasource.password=YOUR_PASSWORD
+- jwt.secret=CHANGE_THIS_TO_A_SECURE_SECRET_KEY
+
+STEP 4: Build Project
+----------------------
+    gradlew.bat build
+
+STEP 5: Run Application
+------------------------
+    gradlew.bat bootRun
+
+STEP 6: Access Application
+---------------------------
+- Backend API: http://localhost:8080
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- Frontend: Open frontend\index.html in browser
+
+DEFAULT LOGIN CREDENTIALS
+--------------------------
+Admin:   admin@healthcare.com / admin123
+Doctor:  doctor1@healthcare.com / doctor123
+Patient: patient1@healthcare.com / patient123
+
+TROUBLESHOOTING
+---------------
+1. If gradlew.bat not found:
+   - You need Gradle wrapper jar file
+   - Run: gradle wrapper
+
+2. If MySQL connection fails:
+   - Check MySQL is running
+   - Verify credentials in application.properties
+   - Ensure database 'healthcare_db' exists
+
+3. If port 8080 is busy:
+   - Change server.port in application.properties
+
+TESTING
+-------
+Run unit tests:
+    gradlew.bat test
+
+API TESTING
+-----------
+1. Login via POST /api/auth/login
+2. Copy JWT token from response
+3. In Swagger UI, click "Authorize" button
+4. Enter: Bearer YOUR_JWT_TOKEN
+5. Test all endpoints
+
+PROJECT STRUCTURE
+-----------------
+See README.md for complete documentation.
+
+SUPPORT
+-------
+Check README.md for detailed documentation.
+All SQL scripts are in database/ folder.
+All frontend files are in frontend/ folder.

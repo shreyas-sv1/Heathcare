@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard - Healthcare Management System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">Healthcare System</div>
+            <div class="flex align-center gap-10">
+                <span id="userName">Welcome!</span>
+                <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="alertBox" class="alert"></div>
+
+        <!-- My Profile -->
+        <div class="card">
+            <div class="card-header">
+                <h2>My Profile</h2>
+            </div>
+            <div id="profileContent">Loading...</div>
+        </div>
+
+        <!-- Available Doctors -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Available Doctors</h2>
+            </div>
+            <div id="doctorsGrid" class="card-grid">Loading...</div>
+        </div>
+
+        <!-- Book Appointment -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Book Appointment</h2>
+            </div>
+            <form id="bookAppointmentForm">
+                <div class="form-group">
+                    <label for="doctorId">Select Doctor</label>
+                    <select id="doctorId" name="doctorId" required>
+                        <option value="">Choose a doctor...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="appointmentDate">Date</label>
+                    <input type="date" id="appointmentDate" name="appointmentDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="appointmentTime">Time</label>
+                    <input type="time" id="appointmentTime" name="appointmentTime" required>
+                </div>
+                <div class="form-group">
+                    <label for="reason">Reason for Visit</label>
+                    <textarea id="reason" name="reason" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Book Appointment</button>
+            </form>
+        </div>
+
+        <!-- My Appointments -->
+        <div class="card">
+            <div class="card-header">
+                <h2>My Appointments</h2>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Doctor</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="appointmentsTable">
+                        <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- My Prescriptions -->
+        <div class="card">
+            <div class="card-header">
+                <h2>My Prescriptions</h2>
+            </div>
+            <div id="prescriptionsList">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+        
+        document.getElementById('userName').textContent = `Welcome, ${localStorage.getItem('userName')}!`;
+        
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.className = `alert alert-${type} show`;
+            alertBox.textContent = message;
+            window.scrollTo(0, 0);
+            setTimeout(() => alertBox.classList.remove('show'), 5000);
+        }
+        
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+        
+        async function loadProfile() {
+            try {
+                const response = await fetch(`${API_BASE}/patients/me`, { headers });
+                if (response.ok) {
+                    const patient = await response.json();
+                    document.getElementById('profileContent').innerHTML = `
+                        <p><strong>Name:</strong> ${patient.name}</p>
+                        <p><strong>Email:</strong> ${patient.email}</p>
+                        <p><strong>Phone:</strong> ${patient.phone}</p>
+                        <p><strong>Date of Birth:</strong> ${patient.dateOfBirth}</p>
+                        <p><strong>Gender:</strong> ${patient.gender}</p>
+                        <p><strong>Blood Group:</strong> ${patient.bloodGroup || 'N/A'}</p>
+                        <p><strong>Address:</strong> ${patient.address}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+            }
+        }
+        
+        async function loadDoctors() {
+            try {
+                const response = await fetch(`${API_BASE}/doctors`, { headers });
+                if (response.ok) {
+                    const doctors = await response.json();
+                    const grid = document.getElementById('doctorsGrid');
+                    const select = document.getElementById('doctorId');
+                    
+                    if (doctors.length === 0) {
+                        grid.innerHTML = '<p>No doctors available at the moment.</p>';
+                        return;
+                    }
+                    
+                    grid.innerHTML = doctors.map(doc => `
+                        <div class="doctor-card">
+                            <h3>${doc.name}</h3>
+                            <p class="specialization">${doc.specialization}</p>
+                            <p class="info">📧 ${doc.email}</p>
+                            <p class="info">📞 ${doc.phone}</p>
+                            <p class="info">🏅 ${doc.qualification || 'N/A'}</p>
+                            <p class="info">Experience: ${doc.experienceYears ?? doc.experience ?? 'N/A'} years</p>
+                            <p class="info">Available: ${doc.availableDays || 'N/A'}</p>
+                        </div>
+                    `).join('');
+                    
+                    select.innerHTML = '<option value="">Choose a doctor...</option>' +
+                        doctors.map(doc => `<option value="${doc.id}">${doc.name} - ${doc.specialization}</option>`).join('');
+                }
+            } catch (error) {
+                console.error('Error loading doctors:', error);
+            }
+        }
+        
+        async function loadAppointments() {
+            try {
+                const response = await fetch(`${API_BASE}/appointments/my`, { headers });
+                if (response.ok) {
+                    const appointments = await response.json();
+                    const tbody = document.getElementById('appointmentsTable');
+                    
+                    if (appointments.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" class="text-center">No appointments found.</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = appointments.map(apt => `
+                        <tr>
+                            <td>${apt.appointmentDate}</td>
+                            <td>${apt.appointmentTime}</td>
+                            <td>${apt.doctorName || 'N/A'}</td>
+                            <td>${apt.reason}</td>
+                            <td><span class="badge">${apt.status}</span></td>
+                            <td>
+                                ${apt.status === 'SCHEDULED' ? 
+                                    `<button onclick="cancelAppointment(${apt.id})" class="btn btn-danger btn-sm">Cancel</button>` : 
+                                    '-'}
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading appointments:', error);
+            }
+        }
+        
+        async function loadPrescriptions() {
+            try {
+                const response = await fetch(`${API_BASE}/prescriptions/my`, { headers });
+                if (response.ok) {
+                    const prescriptions = await response.json();
+                    const container = document.getElementById('prescriptionsList');
+                    
+                    if (prescriptions.length === 0) {
+                        container.innerHTML = '<p>No prescriptions found.</p>';
+                        return;
+                    }
+                    
+                    container.innerHTML = prescriptions.map(pres => `
+                        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+                            <h4>Prescription #${pres.id}</h4>
+                            <p><strong>Doctor:</strong> ${pres.doctorName || 'N/A'}</p>
+                            <p><strong>Date:</strong> ${pres.issuedDate || pres.prescriptionDate || 'N/A'}</p>
+                            <p><strong>Diagnosis:</strong> ${pres.diagnosis}</p>
+                            <p><strong>Notes:</strong> ${pres.notes || 'None'}</p>
+                            <div>
+                                <strong>Medicines:</strong>
+                                <ul>
+                                    ${(pres.items || pres.medicines || []).length ? (pres.items || pres.medicines).map(med => 
+                                        `<li>${med.medicineName || med.name} - ${med.dosage} (${med.frequency}) for ${med.durationDays || med.duration || 'N/A'} days</li>`
+                                    ).join('') : '<li>No medicines prescribed</li>'}
+                                </ul>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error loading prescriptions:', error);
+            }
+        }
+        
+        document.getElementById('bookAppointmentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = {
+                doctorId: parseInt(formData.get('doctorId')),
+                appointmentDate: formData.get('appointmentDate'),
+                appointmentTime: formData.get('appointmentTime'),
+                reason: formData.get('reason')
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/appointments`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    showAlert('Appointment booked successfully!', 'success');
+                    e.target.reset();
+                    loadAppointments();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.message || 'Failed to book appointment.', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Network error. Please try again.', 'danger');
+            }
+        });
+        
+        async function cancelAppointment(id) {
+            if (!confirm('Are you sure you want to cancel this appointment?')) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/appointments/${id}`, {
+                    method: 'DELETE',
+                    headers
+                });
+                
+                if (response.ok) {
+                    showAlert('Appointment cancelled successfully!', 'success');
+                    loadAppointments();
+                } else {
+                    showAlert('Failed to cancel appointment.', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Network error. Please try again.', 'danger');
+            }
+        }
+        
+        // Set minimum date to today
+        document.getElementById('appointmentDate').min = new Date().toISOString().split('T')[0];
+        
+        // Load all data
+        loadProfile();
+        loadDoctors();
+        loadAppointments();
+        loadPrescriptions();
+    </script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard - Healthcare Management System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">Healthcare System - Doctor Portal</div>
+            <div class="flex align-center gap-10">
+                <span id="userName">Welcome!</span>
+                <button onclick="logout()" class="btn btn-danger btn-sm">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="alertBox" class="alert"></div>
+
+        <!-- My Appointments -->
+        <div class="card">
+            <div class="card-header">
+                <h2>My Appointments</h2>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Patient</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="appointmentsTable">
+                        <tr><td colspan="5" class="text-center">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Update Appointment Status -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Update Appointment Status</h2>
+            </div>
+            <form id="updateStatusForm">
+                <div class="form-group">
+                    <label for="appointmentId">Select Appointment</label>
+                    <select id="appointmentId" name="appointmentId" required>
+                        <option value="">Choose an appointment...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="status">New Status</label>
+                    <select id="status" name="status" required>
+                        <option value="">Select status...</option>
+                        <option value="CONFIRMED">Confirmed</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes (Optional)</label>
+                    <textarea id="notes" name="notes"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Update Status</button>
+            </form>
+        </div>
+
+        <!-- Write Prescription -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Write Prescription</h2>
+            </div>
+            <form id="prescriptionForm">
+                <div class="form-group">
+                    <label for="prescriptionAppointmentId">Select Appointment</label>
+                    <select id="prescriptionAppointmentId" name="appointmentId" required>
+                        <option value="">Choose an appointment...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="diagnosis">Diagnosis</label>
+                    <textarea id="diagnosis" name="diagnosis" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="prescriptionNotes">Notes</label>
+                    <textarea id="prescriptionNotes" name="notes"></textarea>
+                </div>
+                
+                <div class="medicine-items">
+                    <h4>Medicines</h4>
+                    <div id="medicinesList">
+                        <div class="medicine-item">
+                            <div class="form-group">
+                                <label>Medicine Name</label>
+                                <input type="text" class="medicine-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dosage</label>
+                                <input type="text" class="medicine-dosage" placeholder="e.g., 500mg" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Frequency</label>
+                                <input type="text" class="medicine-frequency" placeholder="e.g., Twice daily" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Duration</label>
+                                <input type="text" class="medicine-duration" placeholder="e.g., 7 days" required>
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button type="button" onclick="removeMedicine(this)" class="btn btn-danger btn-sm">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addMedicine()" class="btn btn-secondary btn-sm mt-20">Add Medicine</button>
+                </div>
+                
+                <button type="submit" class="btn btn-success mt-20">Submit Prescription</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        const headers = {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+        
+        document.getElementById('userName').textContent = `Welcome, Dr. ${localStorage.getItem('userName')}!`;
+        
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.className = `alert alert-${type} show`;
+            alertBox.textContent = message;
+            window.scrollTo(0, 0);
+            setTimeout(() => alertBox.classList.remove('show'), 5000);
+        }
+        
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+        
+        async function loadAppointments() {
+            try {
+                const response = await fetch(`${API_BASE}/appointments/doctor/me`, { headers });
+                if (response.ok) {
+                    const appointments = await response.json();
+                    const tbody = document.getElementById('appointmentsTable');
+                    const selectStatus = document.getElementById('appointmentId');
+                    const selectPrescription = document.getElementById('prescriptionAppointmentId');
+                    
+                    if (appointments.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center">No appointments found.</td></tr>';
+                        return;
+                    }
+                    
+                    tbody.innerHTML = appointments.map(apt => `
+                        <tr>
+                            <td>${apt.appointmentDate}</td>
+                            <td>${apt.appointmentTime}</td>
+                            <td>${apt.patientName || 'N/A'}</td>
+                            <td>${apt.reason}</td>
+                            <td><span class="badge">${apt.status}</span></td>
+                        </tr>
+                    `).join('');
+                    
+                    const options = appointments.map(apt => 
+                        `<option value="${apt.id}">${apt.appointmentDate} - ${apt.patientName} (${apt.status})</option>`
+                    ).join('');
+                    
+                    selectStatus.innerHTML = '<option value="">Choose an appointment...</option>' + options;
+                    selectPrescription.innerHTML = '<option value="">Choose an appointment...</option>' + options;
+                }
+            } catch (error) {
+                console.error('Error loading appointments:', error);
+            }
+        }
+        
+        document.getElementById('updateStatusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const appointmentId = formData.get('appointmentId');
+            const data = {
+                status: formData.get('status'),
+                notes: formData.get('notes')
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/appointments/${appointmentId}/status`, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    showAlert('Appointment status updated successfully!', 'success');
+                    e.target.reset();
+                    loadAppointments();
+                } else {
+                    const error = await response.json();
+                    showAlert(error.message || 'Failed to update status.', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Network error. Please try again.', 'danger');
+            }
+        });
+        
+        function addMedicine() {
+            const medicinesList = document.getElementById('medicinesList');
+            const newMedicine = document.createElement('div');
+            newMedicine.className = 'medicine-item';
+            newMedicine.innerHTML = `
+                <div class="form-group">
+                    <label>Medicine Name</label>
+                    <input type="text" class="medicine-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Dosage</label>
+                    <input type="text" class="medicine-dosage" placeholder="e.g., 500mg" required>
+                </div>
+                <div class="form-group">
+                    <label>Frequency</label>
+                    <input type="text" class="medicine-frequency" placeholder="e.g., Twice daily" required>
+                </div>
+                <div class="form-group">
+                    <label>Duration</label>
+                    <input type="text" class="medicine-duration" placeholder="e.g., 7 days" required>
+                </div>
+                <div class="form-group">
+                    <label>&nbsp;</label>
+                    <button type="button" onclick="removeMedicine(this)" class="btn btn-danger btn-sm">Remove</button>
+                </div>
+            `;
+            medicinesList.appendChild(newMedicine);
+        }
+        
+        function removeMedicine(button) {
+            const medicinesList = document.getElementById('medicinesList');
+            if (medicinesList.children.length > 1) {
+                button.closest('.medicine-item').remove();
+            } else {
+                showAlert('At least one medicine is required.', 'warning');
+            }
+        }
+        
+        document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            const items = [];
+            document.querySelectorAll('.medicine-item').forEach(item => {
+                items.push({
+                    medicineName: item.querySelector('.medicine-name').value,
+                    dosage: item.querySelector('.medicine-dosage').value,
+                    frequency: item.querySelector('.medicine-frequency').value,
+                    durationDays: parseInt(item.querySelector('.medicine-duration').value, 10)
+                });
+            });
+            
+            const data = {
+                appointmentId: parseInt(formData.get('appointmentId')),
+                diagnosis: formData.get('diagnosis'),
+                notes: formData.get('notes'),
+                items: items
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/prescriptions`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    showAlert('Prescription created successfully!', 'success');
+                    e.target.reset();
+                    document.getElementById('medicinesList').innerHTML = `
+                        <div class="medicine-item">
+                            <div class="form-group">
+                                <label>Medicine Name</label>
+                                <input type="text" class="medicine-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Dosage</label>
+                                <input type="text" class="medicine-dosage" placeholder="e.g., 500mg" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Frequency</label>
+                                <input type="text" class="medicine-frequency" placeholder="e.g., Twice daily" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Duration</label>
+                                <input type="text" class="medicine-duration" placeholder="e.g., 7 days" required>
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button type="button" onclick="removeMedicine(this)" class="btn btn-danger btn-sm">Remove</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const error = await response.json();
+                    showAlert(error.message || 'Failed to create prescription.', 'danger');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showAlert('Network error. Please try again.', 'danger');
+            }
+        });
+        
+        loadAppointments();
+    </script>
+</body>
+</html>
